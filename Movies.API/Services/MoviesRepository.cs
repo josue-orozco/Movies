@@ -1,48 +1,50 @@
-﻿using Movies.API.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using Movies.API.DbContexts;
+using Movies.API.Entities;
+using Movies.API.Models;
 
 namespace Movies.API.Services
 {
     public class MoviesRepository : IMoviesRepository
     {
-        private readonly MoviesDataStore moviesDataStore;
+        //private readonly MoviesDataStore moviesDataStore;
+        private readonly MoviesContext context;
 
-        public MoviesRepository(MoviesDataStore moviesDataStore)
+        public MoviesRepository(MoviesContext context)
         {
-            this.moviesDataStore = moviesDataStore ?? throw new ArgumentNullException(nameof(moviesDataStore));
+            this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public void AddMovieAsync(MovieDto movie)
+        public async Task<bool> MovieExistsAsync(string movieTitle)
         {
-            moviesDataStore.Movies.Add(movie);
+            return await context.Movies.AnyAsync(m => m.Title == movieTitle);
         }
 
-        public void DeleteMovie(string movieName)
+        public async Task<IEnumerable<Movie>> GetMoviesAsync()
         {
-            if (MovieExistsAsync(movieName))
-            {
-                moviesDataStore.Movies.RemoveAll(m => m.Title == movieName);
-            }
+            var temp = await context.Movies.Include(x => x.Genres).Include(x => x.Cast).OrderBy(m => m.Title).ToListAsync();
+
+            return temp;
         }
 
-        public MovieDto? GetMovieAsync(string movieName)
+        public async Task<Movie?> GetMovieAsync(string movieTitle)
         {
-            return moviesDataStore.Movies.FirstOrDefault(m => m.Title == movieName);
+            return await context.Movies.Include(x => x.Genres).Include(x => x.Cast).FirstOrDefaultAsync(m => m.Title == movieTitle);
         }
 
-        public IEnumerable<MovieDto> GetMoviesAsync()
+        public void AddMovieAsync(Movie movie)
         {
-            return moviesDataStore.Movies.OrderBy(m => m.Title).ToList();
+            context.Movies.Add(movie);
         }
 
-        public bool MovieExistsAsync(string movieTitle)
+        public void DeleteMovie(Movie movie)
         {
-            return moviesDataStore.Movies.Any(m => m.Title == movieTitle);
+            context.Movies.Remove(movie);
         }
 
-        public bool SaveChangesAsync()
+        public async Task<bool> SaveChangesAsync()
         {
-            //do nothing until we have a DB
-            return true;
+            return (await context.SaveChangesAsync() >= 0);
         }
     }
 }

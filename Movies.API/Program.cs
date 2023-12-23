@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Movies.API;
+using Movies.API.DbContexts;
 using Movies.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,9 +12,17 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddSingleton<MoviesDataStore>();
+//builder.Services.AddSingleton<MoviesDataStore>();
+
+// connection string for dev env is coming from appsetting.dev.json but it should be done
+// differently for prod env such as using env variables or encrypted
+builder.Services.AddDbContext<MoviesContext>(
+    dbContextOptions => dbContextOptions.UseMySQL(
+        builder.Configuration["ConnectionStrings:MoviesDBConnectionString"]));
 
 builder.Services.AddScoped<IMoviesRepository, MoviesRepository>();
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 var app = builder.Build();
 

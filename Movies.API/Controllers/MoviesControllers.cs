@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Movies.API.Entities;
 using Movies.API.Models;
 using Movies.API.Services;
 
@@ -9,74 +11,83 @@ namespace Movies.API.Controllers
     public class MoviesControllers : ControllerBase
     {
         private readonly IMoviesRepository moviesRepository;
+        private readonly IMapper mapper;
 
-        public MoviesControllers(IMoviesRepository moviesRepository)
+        public MoviesControllers(IMoviesRepository moviesRepository, IMapper mapper)
         {
             this.moviesRepository = moviesRepository ?? throw new ArgumentNullException(nameof(moviesRepository));
+            this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<MovieDto>> GetMovies()
+        public async Task<ActionResult<IEnumerable<MovieDto>>> GetMovies()
         {
-            return Ok(moviesRepository.GetMoviesAsync());
+            var movies = await moviesRepository.GetMoviesAsync();
+
+            return Ok(mapper.Map<IEnumerable<MovieDto>>(movies));
         }
 
         [HttpGet("{movieTitle}", Name = "GetMovie")]
-        public ActionResult<MovieDto> GetMovie(string movieTitle)
+        public async Task<ActionResult<MovieDto>> GetMovie(string movieTitle)
         {
-            var movie = moviesRepository.GetMovieAsync(movieTitle);
+            var movie = await moviesRepository.GetMovieAsync(movieTitle);
 
             if (movie == null)
             {
                 return NotFound();
             }
 
-            return Ok(movie);
+            return Ok(mapper.Map<MovieDto>(movie));
         }
 
         [HttpPost]
-        public ActionResult AddMovie([FromBody] MovieDto movie)
+        public async Task<ActionResult> AddMovie([FromBody] MovieDto movie)
         {
             if (movie == null)
             {
                 return BadRequest();
             }
             
-            if (moviesRepository.MovieExistsAsync(movie.Title) == true)
+            if (await moviesRepository.MovieExistsAsync(movie.Title))
             {
                 // Movie entry already exist.
-                // Log
                 return BadRequest();
             }
 
-            moviesRepository.AddMovieAsync(movie);
+            var newMovie = mapper.Map<Movie>(movie);
 
-            moviesRepository.SaveChangesAsync();
+            moviesRepository.AddMovieAsync(newMovie);
+
+            await moviesRepository.SaveChangesAsync();
+
+            var createdMovie = mapper.Map<MovieDto>(newMovie);
 
             return CreatedAtRoute("GetMovie",
                 new
                 {
-                    movieTitle = movie.Title
+                    movieTitle = createdMovie.Title
                 },
-                movie);
+                createdMovie);
         }
 
         [HttpDelete("{movieTitle}")]
-        public ActionResult RemoveMovie(string movieTitle)
+        public async Task<ActionResult> RemoveMovie(string movieTitle)
         {
             if (movieTitle == null)
             {
                 return BadRequest();
             }
 
-            if (moviesRepository.MovieExistsAsync(movieTitle) == false)
+            if (await moviesRepository.MovieExistsAsync(movieTitle) == false)
             {
                 return NotFound();
             }
 
-            moviesRepository.DeleteMovie(movieTitle);
+            var movie = await moviesRepository.GetMovieAsync(movieTitle);
 
-            moviesRepository.SaveChangesAsync();
+            moviesRepository.DeleteMovie(movie);
+
+            await moviesRepository.SaveChangesAsync();
 
             return NoContent();
         }
