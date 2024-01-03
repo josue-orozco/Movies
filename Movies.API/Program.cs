@@ -1,9 +1,17 @@
 using Microsoft.EntityFrameworkCore;
-using Movies.API;
 using Movies.API.DbContexts;
 using Movies.API.Services;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.Console()
+    .WriteTo.File("output/logs/movies.Api.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 // Add services to the container.
 
@@ -23,6 +31,13 @@ builder.Services.AddDbContext<MoviesContext>(
 builder.Services.AddScoped<IMoviesRepository, MoviesRepository>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+builder.Services.AddApiVersioning(setupAction =>
+{
+    setupAction.AssumeDefaultVersionWhenUnspecified = true;
+    setupAction.DefaultApiVersion = new Asp.Versioning.ApiVersion(1.0);
+    setupAction.ReportApiVersions = true;
+}).AddMvc();
 
 var app = builder.Build();
 
